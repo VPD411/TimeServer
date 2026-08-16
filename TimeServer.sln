@@ -13,6 +13,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SocketThreadServer.Server",
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SocketThreadServer.Client", "SocketThreadServer.Client\SocketThreadServer.Client.csproj", "{EF8298E6-EBA9-4C33-BE8F-9BB41F5D1E29}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SaeaServer.Server", "SaeaServer.Server\SaeaServer.Server.csproj", "{1FFC87B8-C693-430F-A881-380ED358FD7C}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -39,6 +41,10 @@ Global
 		{EF8298E6-EBA9-4C33-BE8F-9BB41F5D1E29}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{EF8298E6-EBA9-4C33-BE8F-9BB41F5D1E29}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{EF8298E6-EBA9-4C33-BE8F-9BB41F5D1E29}.Release|Any CPU.Build.0 = Release|Any CPU
+		{1FFC87B8-C693-430F-A881-380ED358FD7C}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{1FFC87B8-C693-430F-A881-380ED358FD7C}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{1FFC87B8-C693-430F-A881-380ED358FD7C}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{1FFC87B8-C693-430F-A881-380ED358FD7C}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
