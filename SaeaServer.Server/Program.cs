@@ -1,6 +1,7 @@
 ﻿using System.Collections.Concurrent;
 using System.Net;
 using System.Net.Sockets;
+using System.Text;
 
 namespace SaeaServer.Server;
 
@@ -156,6 +157,58 @@ class Program
     }
 
     private static void ProcessReceivedData(ClientState state)
+    {
+        byte[] buffer = state.ReceiveStream!.ToArray();
+        int offset = 0;
+
+        while (buffer.Length > offset)
+        {
+            if (state.ExpectedLength == -1)
+            {
+                // Ждём заголовок (4 байта)
+                if (buffer.Length - offset < 4)
+                {
+                    break; // Не хватает данных
+                }
+
+                state.ExpectedLength = BitConverter.ToInt32(buffer, offset);
+                offset += 4;
+            }
+            else
+            {
+                // Ждём тело сообщения
+                if (buffer.Length - offset < state.ExpectedLength)
+                {
+                    break; // Не хватает данных
+                }
+
+                byte[] messageBytes = new byte[state.ExpectedLength];
+                Array.Copy(buffer, offset, messageBytes, 0, state.ExpectedLength);
+                offset += state.ExpectedLength;
+
+                // Обрабатываем сообщение
+                string message = Encoding.UTF8.GetString(messageBytes);
+                Console.WriteLine($"Получено: {message}");
+                string response = message.ToUpperInvariant();
+                byte[] responseBytes = Encoding.UTF8.GetBytes(response);
+
+                // Отправляем ответ
+                SendResponse(state, responseBytes);
+
+                // Сбрасываем ожидание длины для следующего сообщения
+                state.ExpectedLength = -1;
+            }
+        }
+
+        // Удаляем обработанные данные из потока
+        if (offset > 0)
+        {
+            byte[] remaining = buffer.Skip(offset).ToArray();
+            state.ReceiveStream = new MemoryStream(remaining);
+        }
+    }
+
+    private static void SendResponse(ClientState state, byte[] responseBytes)
     {
         throw new NotImplementedException();
     }
