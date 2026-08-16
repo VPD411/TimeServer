@@ -1,63 +1,75 @@
-﻿using System.Net;
+﻿using System.Linq.Expressions;
+using System.Net;
 using System.Net.Sockets;
 using System.Text;
 
-namespace SocketThreadServer;
+namespace SocketThreadServer.Server;
 
 class Program
 {
-    static void Main()
+    private static readonly CancellationTokenSource cts = new();
+
+    static async Task Main()
     {
-        // Создаём TCP-сокет
-        Socket listener = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
-
-        // Привязываем сокет к localhost:13010
-        IPEndPoint localEndPoint = new IPEndPoint(IPAddress.Loopback, 13010);
-        listener.Bind(localEndPoint);
-
-        // Начинаем слушать (максимум 10 ожидающих в очереди)
-        listener.Listen(10);
-        Console.WriteLine($"Сервер запущен на {localEndPoint}. Ожидаем подключений...");
-
-        while (true)
+        // Обработка Ctrl+C
+        Console.CancelKeyPress += (sender, e) =>
         {
-            // Блокируемся до нового подключения
-            Socket clientSocket = listener.Accept();
-            Console.WriteLine($"Подключён клиент: {clientSocket.RemoteEndPoint}");
+            e.Cancel = true;
+            cts.Cancel();
+        };
 
-            // Запускаем обработку клиента в отдельном потоке
-            Thread clientThread = new Thread(() => HandleClient(clientSocket));
-            clientThread.IsBackground = true;
-            clientThread.Start();
+        // Поднимаем сокет
+        Socket listener = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
+        listener.Bind(new IPEndPoint(IPAddress.Loopback, 13010));
+        listener.Listen(100);
+        Console.WriteLine($"Асинхронный сервер запущен на {listener.LocalEndPoint}. Нажмите Ctrl+C для остановки.");
+
+        try
+        {
+            while (!cts.IsCancellationRequested)
+            {
+                // Асинхронно ожидаем подключение
+                Socket clientSocket = await listener.AcceptAsync(cts.Token);
+                Console.WriteLine($"Подключен клиент: {clientSocket.RemoteEndPoint}");
+
+                // Запускаем обработку клиента (не блокируем цикл приема)
+                _ = HandleClientAsync(clientSocket, cts.Token);
+            }
+        }
+        catch (OperationCanceledException)
+        {
+            Console.WriteLine("Остановка сервера...");
+        }
+        finally
+        {
+            listener.Close();
         }
     }
 
-    private static void HandleClient(Socket clientSocket)
+    private static async Task HandleClientAsync(Socket clientSocket, CancellationToken token)
     {
         byte[] buffer = new byte[1024];
-
         string clientInfo = clientSocket.RemoteEndPoint?.ToString() ?? "Undefined";
 
         try
         {
             while (true)
             {
-                // Принимаем данные
-                int received = clientSocket.Receive(buffer);
+                // Асинхронно принимаем данные
+                int received = await clientSocket.ReceiveAsync(buffer, SocketFlags.None, token);
+
+                // Разрыв соединения
                 if (received == 0)
                 {
-                    // Если длина равна нулю, значит пользователь закрыл соединение
-                    Console.WriteLine($"Клиент {clientInfo} отключился.");
-                    break;
+                    Console.WriteLine($"Клиент {clientInfo} отсоединился.");
                 }
 
                 string request = Encoding.UTF8.GetString(buffer, 0, received);
-                Console.WriteLine($"[{clientInfo}] Получено: {request.TrimEnd('\r', '\n')}");
+                Console.WriteLine($"[{clientInfo} Получено: {request.TrimEnd('\r', '\n')}");
 
-                // Проверка на выход
                 if (request.TrimEnd('\r', '\n').Equals("exit", StringComparison.OrdinalIgnoreCase))
                 {
-                    Console.WriteLine($"Клиент {clientInfo} запросил завершение.");
+                    // Запрошен exit
                     break;
                 }
 
@@ -65,9 +77,13 @@ class Program
                 string response = $"Echo: {request}";
                 byte[] responseBytes = Encoding.UTF8.GetBytes(response);
 
-                // Отправляем обратно
-                clientSocket.Send(responseBytes);
+                // Асинхронно отправляем ответ
+                await clientSocket.SendAsync(responseBytes, SocketFlags.None, token);
             }
+        }
+        catch (OperationCanceledException)
+        {
+            Console.WriteLine($"Обработка клиента {clientInfo} отменена.");
         }
         catch (SocketException ex)
         {
@@ -75,7 +91,6 @@ class Program
         }
         finally
         {
-            // Корректно завершаем соединение
             clientSocket.Shutdown(SocketShutdown.Both);
             clientSocket.Close();
         }

@@ -6,7 +6,7 @@ namespace SocketThreadServer.Client;
 
 class Program
 {
-    static void Main()
+    static async Task Main()
     {
         // Создаём TCP-сокет
         Socket clientSocket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
@@ -15,42 +15,51 @@ class Program
         {
             // Подключаемся к серверу localhost:13010
             IPEndPoint serverEndPoint = new IPEndPoint(IPAddress.Loopback, 13010);
-            clientSocket.Connect(serverEndPoint);
+            await clientSocket.ConnectAsync(serverEndPoint);
             Console.WriteLine("Подключено к серверу. Вводите сообщения (exit для выхода):");
 
+            // Задача приёма сообщений
+            Task receiveTask = Task.Run(async () =>
+            {
+                byte[] buffer = new byte[1024];
+
+                while (true)
+                {
+                    int received = await clientSocket.ReceiveAsync(buffer, SocketFlags.None);
+                    if (received == 0)
+                    {
+                        Console.WriteLine("Соединение закрыто сервером.");
+                        break;
+                    }
+
+                    string response = Encoding.UTF8.GetString(buffer, 0, received);
+                    Console.WriteLine($"Сервер: {response}");
+                }
+            });
+
+            // Отправка сообщений
             while (true)
             {
                 string? message = Console.ReadLine();
                 if (string.IsNullOrEmpty(message)) continue;
 
-                // Добавляем перевод строки
                 byte[] data = Encoding.UTF8.GetBytes(message + "\n");
-                clientSocket.Send(data);
+                await clientSocket.SendAsync(data, SocketFlags.None);
 
                 if (message.Trim().Equals("exit", StringComparison.OrdinalIgnoreCase))
                 {
-                    Console.WriteLine("Отправлен сигнал завершения.");
                     break;
                 }
 
-                // Получаем ответ
-                byte[] buffer = new byte[1024];
-                int received = clientSocket.Receive(buffer);
-                string response = Encoding.UTF8.GetString(buffer, 0, received);
-
-                Console.WriteLine($"Сервер: {response}");
+                await receiveTask;
+                clientSocket.Shutdown(SocketShutdown.Both);
+                clientSocket.Close();
             }
         }
         catch (SocketException ex)
         {
             Console.WriteLine($"Ошибка: {ex.Message}");
         }
-        finally
-        {
-            clientSocket.Shutdown(SocketShutdown.Both);
-            clientSocket.Close();
-        }
-
         Console.WriteLine("Нажмите любую клавишу...");
         Console.ReadKey();
     }
