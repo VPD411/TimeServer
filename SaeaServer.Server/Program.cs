@@ -210,11 +210,44 @@ class Program
 
     private static void SendResponse(ClientState state, byte[] responseBytes)
     {
-        throw new NotImplementedException();
+        // Используем синхронную отправку (в реальном сервера тоже SAEA)
+        try
+        {
+            // Добавляем префикс длины
+            byte[] lengthPrefix = BitConverter.GetBytes(responseBytes.Length);
+            byte[] fullMessage = lengthPrefix.Concat(responseBytes).ToArray();
+            state.Socket!.Send(fullMessage);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Ошибка отправки: {ex.Message}");
+            DisconnectClient(state);
+        }
     }
 
     private static void DisconnectClient(SocketAsyncEventArgs e)
     {
-        throw new NotImplementedException();
+        var state = (ClientState)e.UserToken!;
+        DisconnectClient(state);
+        // Возвращем SAEA в пул
+        receiveEventArgsPool.Add(e);
+    }
+
+    private static void DisconnectClient(ClientState state)
+    {
+        if (state.Socket != null)
+        {
+            Console.WriteLine($"Клиент {state.Socket.RemoteEndPoint} отключен");
+            clients.TryRemove(state.Socket, out _);
+            try
+            {
+                state.Socket.Shutdown(SocketShutdown.Both);
+            }
+            catch 
+            {
+                // Исключения глотаем
+            }
+            state.Socket.Close();
+        }
     }
 }
