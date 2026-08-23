@@ -87,10 +87,10 @@ class Program
 
     private static void ProcessAccept(SocketAsyncEventArgs e)
     {
+        Socket clientSocket = e.AcceptSocket!;
+
         if (e.SocketError == SocketError.Success)
         {
-            Socket clientSocket = e.AcceptSocket!;
-
             Console.WriteLine($"Подключён клиент: {clientSocket.RemoteEndPoint}");
 
             // Создаём состояние клиента и запускаем приём
@@ -113,9 +113,13 @@ class Program
                 ProcessReceive(receiveArgs);
             }
         }
+        else
+        {
+            Console.WriteLine($"Ошибка на сокете {e.AcceptSocket!.RemoteEndPoint}");
+        }
 
         // Продолжаем принимать следующие подключения
-        // StartAccept((Socket)sender!, e);
+        StartAccept(clientSocket, e);    
     }
 
     private static SocketAsyncEventArgs GetReceiveEventArgs()
